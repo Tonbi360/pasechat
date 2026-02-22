@@ -129,3 +129,63 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
 #chat-screen header {
   cursor: pointer;
   }
+
+/* Reply Preview Bar */
+.reply-preview {
+  background: #2a2a2a;
+  border-left: 3px solid #f39c12;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reply-preview span {
+  font-size: 0.75rem;
+  color: #888;
+  white-space: nowrap;
+}
+
+.reply-preview p {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.cancel-reply {
+  background: transparent;
+  border: none;
+  color: #f39c12;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 5px;
+}
+
+/* Ghost Reply Message Styling */
+.message.ghost {
+  border-left: 3px solid #555;
+  padding-left: 12px;
+  margin-bottom: 4px;
+  opacity: 0.7;
+  font-size: 0.85rem;
+  color: #aaa;
+  background: transparent !important;
+  border: none !important;
+  max-width: 90%;
+}
+
+.message.ghost + .message {
+  margin-top: 2px;
+}
+
+/* Enable long-press feedback */
+.message:active {
+  transform: scale(0.98);
+  transition: transform 0.1s;
+}
