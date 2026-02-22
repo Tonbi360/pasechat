@@ -32,6 +32,36 @@
       <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
   </div>
+  <!-- Profile Modal -->
+<div id="profile-modal" class="modal hidden">
+  <div class="modal-content">
+    <button onclick="closeProfile()" class="close-btn">✕</button>
+    <div class="profile-header">
+      <div class="avatar">🚶</div>
+      <h2 id="profile-name">User</h2>
+    </div>
+    
+    <!-- Level 1: Always visible -->
+    <div class="profile-section">
+      <h3>Status</h3>
+      <p id="profile-status">"Living at my own pace"</p>
+    </div>
+    
+    <!-- Level 2: Unlocked after 10 messages -->
+    <div class="profile-section locked" id="level-2">
+      <h3>Bio 🔒</h3>
+      <p class="lock-msg">Send 10 messages to unlock</p>
+      <p class="unlock-content hidden">I love deep conversations and meaningful connections.</p>
+    </div>
+    
+    <!-- Level 3: Unlocked after 50 messages -->
+    <div class="profile-section locked" id="level-3">
+      <h3>Interests 🔒</h3>
+      <p class="lock-msg">Send 50 messages to unlock</p>
+      <p class="unlock-content hidden">• Philosophy<br>• Tech<br>• Music<br>• Walking</p>
+    </div>
+  </div>
+</div>
 
   <script src="app.js"></script>
   <script>
