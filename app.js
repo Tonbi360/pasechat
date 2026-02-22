@@ -1,5 +1,6 @@
 // ⚙️ CONFIGURATION
 const BOT_TOKEN = '8393616041:AAFiikss8moFzdTA6xF-QmEKZG_zkYL41DQ'; 
+const BOT_ID = 8393616041; // Extract from token (before the colon)
 const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // 🌍 Global State
@@ -19,10 +20,10 @@ window.onload = () => {
   startPolling();
 };
 
-// 🗓️ Weekly Reset Logic (Every Sunday)
+// 🗓️ Weekly Reset
 function checkWeeklyReset() {
   const now = new Date();
-  const day = now.getDay(); // 0 = Sunday
+  const day = now.getDay();
   const last = localStorage.getItem('pase_lastReset');
   
   if (day === 0 && (!last || now - new Date(last) > 604800000)) {
@@ -72,11 +73,11 @@ async function sendMessage() {
   let spendToken = false;
 
   if (isNewContact && tokens > 0) {
-    const confirmSend = confirm(`🎟️ This is a new contact. Spend 1 Intro Token? (${tokens} left)`);
+    const confirmSend = confirm(`🎟️ Spend 1 Intro Token? (${tokens} left)`);
     if (!confirmSend) return;
     spendToken = true;
   } else if (isNewContact && tokens === 0) {
-    const forceSend = confirm(`⚠️ You have 0 Tokens. Continue?`);
+    const forceSend = confirm(`⚠️ 0 Tokens. Continue?`);
     if (!forceSend) return;
   }
 
@@ -110,7 +111,7 @@ async function sendMessage() {
   }
 }
 
-// ⏳ Feature #1: Send Countdown (30s)
+// ⏳ Countdown
 function startCountdown() {
   countdownActive = true;
   const btn = document.getElementById('send-btn');
@@ -132,7 +133,7 @@ function startCountdown() {
   }, 1000);
 }
 
-// 📥 Receive Messages (FIXED - Show ALL messages in chat)
+// 📥 Receive Messages (FIXED - Check BOT_ID)
 async function startPolling() {
   setInterval(async () => {
     if (!chatId) return;
@@ -148,7 +149,7 @@ async function startPolling() {
             const msg = update.message;
             const messageId = update.update_id;
             
-            // Check if this message is in OUR chat (chat with this user)
+            // Only process messages in THIS chat
             if (msg.chat.id == chatId) {
               const text = msg.text;
               const fromId = msg.from.id;
@@ -157,13 +158,13 @@ async function startPolling() {
               const alreadyRendered = document.querySelector(`[data-msg-id="${messageId}"]`);
               
               if (!alreadyRendered && text) {
-                // If sender is me → sent, otherwise → received
+                // KEY FIX: If fromId matches MY chatId → I sent it
+                // If fromId is BOT_ID → bot sent it
                 const type = fromId == chatId ? 'sent' : 'received';
                 addMessageToUI(text, type, messageId);
               }
             }
             
-            // Always update offset
             lastUpdateId = update.update_id + 1;
             localStorage.setItem('pase_lastUpdateId', lastUpdateId);
           }
@@ -184,4 +185,4 @@ function addMessageToUI(text, type, msgId) {
   const container = document.getElementById('messages');
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
-}
+    }
