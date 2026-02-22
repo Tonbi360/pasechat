@@ -20,56 +20,85 @@
   <!-- Chat Screen (Hidden by default) -->
   <div id="chat-screen" class="hidden">
     <header>
-      <div id="token-display">🎟️ 1</div>
-      <h2>🚶 Pase</h2>
-      <button onclick="logout()" class="secondary">Exit</button>
+      <h2 onclick="openProfile()">🚶 Pase</h2>
+      <div class="header-actions">
+        <button onclick="toggleScheduled()" class="secondary" title="Scheduled">📅</button>
+        <button onclick="logout()" class="secondary">Exit</button>
+      </div>
     </header>
     
+    <!-- Token Display -->
+    <div id="token-display">🎟️ 1</div>
+    
+    <!-- Messages Container -->
     <div id="messages"></div>
 
-    <!-- Reply Preview (Hidden by default) -->
-<div id="reply-preview" class="reply-preview hidden">
-  <span>Replying to:</span>
-  <p id="reply-text"></p>
-  <button onclick="cancelReply()" class="cancel-reply">✕</button>
-</div>
+    <!-- Reply Preview (Ghost Reply) -->
+    <div id="reply-preview" class="reply-preview hidden">
+      <span>Replying to:</span>
+      <p id="reply-text"></p>
+      <button onclick="cancelReply()" class="cancel-reply">✕</button>
+    </div>
 
-<!-- Input Area (already exists, just make sure it's after reply-preview) -->
+    <!-- Input Area -->
     <div class="input-area">
       <input type="text" id="message-input" placeholder="Type a message..." />
       <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
   </div>
-  <!-- Profile Modal -->
-<div id="profile-modal" class="modal hidden">
-  <div class="modal-content">
-    <button onclick="closeProfile()" class="close-btn">✕</button>
-    <div class="profile-header">
-      <div class="avatar">🚶</div>
-      <h2 id="profile-name">User</h2>
+
+  <!-- Scheduled Messages Panel -->
+  <div id="scheduled-panel" class="scheduled-panel hidden">
+    <div class="panel-header">
+      <h3>📅 Scheduled</h3>
+      <button onclick="toggleScheduled()" class="close-btn">✕</button>
     </div>
-    
-    <!-- Level 1: Always visible -->
-    <div class="profile-section">
-      <h3>Status</h3>
-      <p id="profile-status">"Living at my own pace"</p>
-    </div>
-    
-    <!-- Level 2: Unlocked after 10 messages -->
-    <div class="profile-section locked" id="level-2">
-      <h3>Bio 🔒</h3>
-      <p class="lock-msg">Send 10 messages to unlock</p>
-      <p class="unlock-content hidden">I love deep conversations and meaningful connections.</p>
-    </div>
-    
-    <!-- Level 3: Unlocked after 50 messages -->
-    <div class="profile-section locked" id="level-3">
-      <h3>Interests 🔒</h3>
-      <p class="lock-msg">Send 50 messages to unlock</p>
-      <p class="unlock-content hidden">• Philosophy<br>• Tech<br>• Music<br>• Walking</p>
+    <div id="scheduled-list"></div>
+    <p class="empty-msg" id="scheduled-empty">No scheduled messages</p>
+  </div>
+
+  <!-- Profile Modal (Progressive Reveal) -->
+  <div id="profile-modal" class="modal hidden">
+    <div class="modal-content">
+      <button onclick="closeProfile()" class="close-btn">✕</button>
+      <div class="profile-header">
+        <div class="avatar">🚶</div>
+        <h2 id="profile-name">User</h2>
+      </div>
+      
+      <!-- Level 1: Always visible -->
+      <div class="profile-section">
+        <h3>Status</h3>
+        <p id="profile-status">"Living at my own pace"</p>
+      </div>
+      
+      <!-- Level 2: Unlocked after 10 messages -->
+      <div class="profile-section locked" id="level-2">
+        <h3>Bio 🔒</h3>
+        <p class="lock-msg">Send 10 messages to unlock</p>
+        <p class="unlock-content hidden">I love deep conversations and meaningful connections.</p>
+      </div>
+      
+      <!-- Level 3: Unlocked after 50 messages -->
+      <div class="profile-section locked" id="level-3">
+        <h3>Interests 🔒</h3>
+        <p class="lock-msg">Send 50 messages to unlock</p>
+        <p class="unlock-content hidden">• Philosophy<br>• Tech<br>• Music<br>• Walking</p>
+      </div>
     </div>
   </div>
-</div>
+
+  <!-- Schedule Modal -->
+  <div id="schedule-modal" class="modal hidden">
+    <div class="modal-content">
+      <button onclick="closeScheduleModal()" class="close-btn">✕</button>
+      <h3>📅 Schedule Message</h3>
+      <input type="text" id="schedule-text" placeholder="Message..." />
+      <label>Send at:</label>
+      <input type="datetime-local" id="schedule-time" />
+      <button onclick="confirmSchedule()" class="primary-btn">Schedule</button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
   <script>
