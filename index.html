@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pase Chat</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <h1>🚶 Pase</h1>
+    <p>Move at your Pase.</p>
+    <input type="text" id="user-id" placeholder="Enter your Telegram User ID" />
+    <button onclick="login()">Start</button>
+    <p class="hint">Find your ID via @userinfobot on Telegram</p>
+  </div>
+
+  <!-- Chat Screen (Hidden by default) -->
+  <div id="chat-screen" class="hidden">
+    <header>
+      <h2>🚶 Pase</h2>
+      <button onclick="logout()" class="secondary">Exit</button>
+    </header>
+    
+    <div id="messages"></div>
+    
+    <div class="input-area">
+      <input type="text" id="message-input" placeholder="Type a message..." />
+      <button id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
