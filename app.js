@@ -1,7 +1,6 @@
 // ⚙️ CONFIGURATION
 const BOT_TOKEN = '8393616041:AAFiikss8moFzdTA6xF-QmEKZG_zkYL41DQ'; 
-const BOT_ID = 8393616041; // Extract from token (before the colon)
-const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`; // Fixed: removed space
 
 // 🌍 Global State
 let chatId = localStorage.getItem('pase_chatId');
@@ -12,12 +11,22 @@ let lastUpdateId = parseInt(localStorage.getItem('pase_lastUpdateId')) || 0;
 let tokens = parseInt(localStorage.getItem('pase_tokens')) || 1;
 let knownContacts = JSON.parse(localStorage.getItem('pase_knownContacts')) || [];
 
+// 📊 Message Count for Profile Reveal
+let messageCounts = JSON.parse(localStorage.getItem('pase_messageCounts')) || {};
+
 // 🚀 Initialize
 window.onload = () => {
   checkWeeklyReset();
   updateTokenUI();
   if (chatId) showChatScreen();
   startPolling();
+  
+  // Setup profile click handler
+  const header = document.querySelector('#chat-screen header h2');
+  if (header) {
+    header.style.cursor = 'pointer';
+    header.addEventListener('click', openProfile);
+  }
 };
 
 // 🗓️ Weekly Reset
@@ -61,6 +70,55 @@ function logout() {
   location.reload();
 }
 
+// 📊 Profile Reveal Functions
+function incrementMessageCount() {
+  messageCounts[chatId] = (messageCounts[chatId] || 0) + 1;
+  localStorage.setItem('pase_messageCounts', JSON.stringify(messageCounts));
+  return messageCounts[chatId];
+}
+
+function getRevealLevel(count) {
+  if (count >= 50) return 3;
+  if (count >= 10) return 2;
+  return 1;
+}
+
+function openProfile() {
+  const count = messageCounts[chatId] || 0;
+  const level = getRevealLevel(count);
+  
+  // Update profile name with count
+  document.getElementById('profile-name').innerText = `User (${count} messages)`;
+  
+  // Reset all sections first
+  document.querySelectorAll('.profile-section').forEach(section => {
+    section.classList.add('locked');
+    section.querySelector('.lock-msg')?.classList.remove('hidden');
+    section.querySelector('.unlock-content')?.classList.add('hidden');
+  });
+  
+  // Unlock based on level
+  if (level >= 2) {
+    const level2 = document.getElementById('level-2');
+    level2.classList.remove('locked');
+    level2.querySelector('.lock-msg').classList.add('hidden');
+    level2.querySelector('.unlock-content').classList.remove('hidden');
+  }
+  
+  if (level >= 3) {
+    const level3 = document.getElementById('level-3');
+    level3.classList.remove('locked');
+    level3.querySelector('.lock-msg').classList.add('hidden');
+    level3.querySelector('.unlock-content').classList.remove('hidden');
+  }
+  
+  document.getElementById('profile-modal').classList.remove('hidden');
+}
+
+function closeProfile() {
+  document.getElementById('profile-modal').classList.add('hidden');
+}
+
 // 💬 Send Message
 async function sendMessage() {
   if (countdownActive) return alert('Please wait before sending again');
@@ -89,6 +147,7 @@ async function sendMessage() {
     });
     
     if (res.ok) {
+      const count = incrementMessageCount(); // Track message
       addMessageToUI(text, 'sent', Date.now());
       input.value = '';
       
@@ -133,7 +192,7 @@ function startCountdown() {
   }, 1000);
 }
 
-// 📥 Receive Messages (FIXED - Check BOT_ID)
+// 📥 Receive Messages
 async function startPolling() {
   setInterval(async () => {
     if (!chatId) return;
@@ -158,9 +217,10 @@ async function startPolling() {
               const alreadyRendered = document.querySelector(`[data-msg-id="${messageId}"]`);
               
               if (!alreadyRendered && text) {
-                // KEY FIX: If fromId matches MY chatId → I sent it
-                // If fromId is BOT_ID → bot sent it
-                const type = fromId == chatId ? 'sent' : 'received';
+                // Determine: Did I send this or receive it?
+                // If fromId matches MY userId → I sent it
+                // If fromId is different → someone else sent it (received)
+                const type = (fromId == chatId) ? 'sent' : 'received';
                 addMessageToUI(text, type, messageId);
               }
             }
@@ -185,4 +245,4 @@ function addMessageToUI(text, type, msgId) {
   const container = document.getElementById('messages');
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
-    }
+}
