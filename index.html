@@ -26,7 +26,15 @@
     </header>
     
     <div id="messages"></div>
-    
+
+    <!-- Reply Preview (Hidden by default) -->
+<div id="reply-preview" class="reply-preview hidden">
+  <span>Replying to:</span>
+  <p id="reply-text"></p>
+  <button onclick="cancelReply()" class="cancel-reply">✕</button>
+</div>
+
+<!-- Input Area (already exists, just make sure it's after reply-preview) -->
     <div class="input-area">
       <input type="text" id="message-input" placeholder="Type a message..." />
       <button id="send-btn" onclick="sendMessage()">Send</button>
