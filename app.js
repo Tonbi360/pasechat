@@ -1,6 +1,6 @@
 // ⚙️ CONFIGURATION
 const BOT_TOKEN = '8393616041:AAFiikss8moFzdTA6xF-QmEKZG_zkYL41DQ'; 
-const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`; // Fixed: removed space
+const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // 🌍 Global State
 let chatId = localStorage.getItem('pase_chatId');
@@ -13,6 +13,9 @@ let knownContacts = JSON.parse(localStorage.getItem('pase_knownContacts')) || []
 
 // 📊 Message Count for Profile Reveal
 let messageCounts = JSON.parse(localStorage.getItem('pase_messageCounts')) || {};
+
+// 👻 Ghost Reply State
+let replyingTo = null; // { msgId, text }
 
 // 🚀 Initialize
 window.onload = () => {
@@ -34,7 +37,6 @@ function checkWeeklyReset() {
   const now = new Date();
   const day = now.getDay();
   const last = localStorage.getItem('pase_lastReset');
-  
   if (day === 0 && (!last || now - new Date(last) > 604800000)) {
     tokens = 1;
     localStorage.setItem('pase_tokens', tokens);
@@ -70,7 +72,7 @@ function logout() {
   location.reload();
 }
 
-// 📊 Profile Reveal Functions
+// 📊 Profile Reveal
 function incrementMessageCount() {
   messageCounts[chatId] = (messageCounts[chatId] || 0) + 1;
   localStorage.setItem('pase_messageCounts', JSON.stringify(messageCounts));
@@ -86,32 +88,26 @@ function getRevealLevel(count) {
 function openProfile() {
   const count = messageCounts[chatId] || 0;
   const level = getRevealLevel(count);
-  
-  // Update profile name with count
   document.getElementById('profile-name').innerText = `User (${count} messages)`;
   
-  // Reset all sections first
   document.querySelectorAll('.profile-section').forEach(section => {
     section.classList.add('locked');
     section.querySelector('.lock-msg')?.classList.remove('hidden');
     section.querySelector('.unlock-content')?.classList.add('hidden');
   });
   
-  // Unlock based on level
   if (level >= 2) {
     const level2 = document.getElementById('level-2');
     level2.classList.remove('locked');
     level2.querySelector('.lock-msg').classList.add('hidden');
     level2.querySelector('.unlock-content').classList.remove('hidden');
   }
-  
   if (level >= 3) {
     const level3 = document.getElementById('level-3');
     level3.classList.remove('locked');
     level3.querySelector('.lock-msg').classList.add('hidden');
     level3.querySelector('.unlock-content').classList.remove('hidden');
   }
-  
   document.getElementById('profile-modal').classList.remove('hidden');
 }
 
@@ -119,7 +115,19 @@ function closeProfile() {
   document.getElementById('profile-modal').classList.add('hidden');
 }
 
-// 💬 Send Message
+// 👻 Ghost Reply Functions
+function startReply(msgId, text) {
+  replyingTo = { msgId, text: text.substring(0, 50) + (text.length > 50 ? '...' : '') };
+  document.getElementById('reply-text').innerText = replyingTo.text;
+  document.getElementById('reply-preview').classList.remove('hidden');
+}
+
+function cancelReply() {
+  replyingTo = null;
+  document.getElementById('reply-preview').classList.add('hidden');
+}
+
+// 💬 Send Message (with Ghost Reply support)
 async function sendMessage() {
   if (countdownActive) return alert('Please wait before sending again');
   
@@ -140,14 +148,27 @@ async function sendMessage() {
   }
 
   try {
+    // Build payload
+    const payload = { chat_id: chatId, text };
+    if (replyingTo && replyingTo.msgId) {
+      payload.reply_to_message_id = replyingTo.msgId;
+    }
+
     const res = await fetch(`${API_URL}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text })
+      body: JSON.stringify(payload)
     });
     
     if (res.ok) {
-      const count = incrementMessageCount(); // Track message
+      const count = incrementMessageCount();
+      
+      // Add ghost reply UI if replying
+      if (replyingTo) {
+        addMessageToUI(replyingTo.text, 'ghost', `ghost-${Date.now()}`);
+        cancelReply(); // Clear reply state
+      }
+      
       addMessageToUI(text, 'sent', Date.now());
       input.value = '';
       
@@ -196,7 +217,6 @@ function startCountdown() {
 async function startPolling() {
   setInterval(async () => {
     if (!chatId) return;
-    
     try {
       const url = `${API_URL}/getUpdates?offset=${lastUpdateId}&timeout=30`;
       const res = await fetch(url);
@@ -208,40 +228,61 @@ async function startPolling() {
             const msg = update.message;
             const messageId = update.update_id;
             
-            // Only process messages in THIS chat
-            if (msg.chat.id == chatId) {
+            if (msg.chat.id == chatId && msg.text) {
               const text = msg.text;
               const fromId = msg.from.id;
-              
-              // Prevent duplicates
               const alreadyRendered = document.querySelector(`[data-msg-id="${messageId}"]`);
               
-              if (!alreadyRendered && text) {
-                // Determine: Did I send this or receive it?
-                // If fromId matches MY userId → I sent it
-                // If fromId is different → someone else sent it (received)
+              if (!alreadyRendered) {
                 const type = (fromId == chatId) ? 'sent' : 'received';
+                
+                // Handle reply context from Telegram
+                if (msg.reply_to_message && msg.reply_to_message.text) {
+                  // Add ghost reply first
+                  addMessageToUI(msg.reply_to_message.text, 'ghost', `ghost-${messageId}`);
+                }
+                
                 addMessageToUI(text, type, messageId);
               }
             }
-            
             lastUpdateId = update.update_id + 1;
             localStorage.setItem('pase_lastUpdateId', lastUpdateId);
           }
         });
       }
-    } catch (err) { 
-      console.log('Poll error:', err); 
-    }
+    } catch (err) { console.log('Poll error:', err); }
   }, 1000);
 }
 
-// 🎨 UI Helper
+// 🎨 UI Helper + Long-Press for Ghost Reply
 function addMessageToUI(text, type, msgId) {
   const div = document.createElement('div');
   div.className = `message ${type}`;
   div.setAttribute('data-msg-id', msgId);
   div.innerText = text;
+  
+  // Add long-press for ghost reply (only on non-ghost messages)
+  if (type !== 'ghost') {
+    let pressTimer;
+    div.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      pressTimer = setTimeout(() => {
+        startReply(msgId, text);
+      }, 500); // 500ms = long press
+    });
+    div.addEventListener('touchend', () => clearTimeout(pressTimer));
+    div.addEventListener('touchcancel', () => clearTimeout(pressTimer));
+    
+    // Desktop fallback
+    div.addEventListener('mousedown', (e) => {
+      pressTimer = setTimeout(() => {
+        startReply(msgId, text);
+      }, 500);
+    });
+    div.addEventListener('mouseup', () => clearTimeout(pressTimer));
+    div.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+  }
+  
   const container = document.getElementById('messages');
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
