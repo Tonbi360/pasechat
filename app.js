@@ -25,13 +25,10 @@ function checkWeeklyReset() {
   const day = now.getDay(); // 0 = Sunday
   const last = localStorage.getItem('pase_lastReset');
   
-  // If it's Sunday and we haven't reset yet this week
   if (day === 0 && (!last || now - new Date(last) > 604800000)) {
     tokens = 1;
     localStorage.setItem('pase_tokens', tokens);
     localStorage.setItem('pase_lastReset', now.toISOString());
-    // Optional: alert user
-    // alert('🎟️ New week! Your Intro Token has been refreshed.');
   }
 }
 
@@ -63,7 +60,7 @@ function logout() {
   location.reload();
 }
 
-// 💬 Send Message (with Token Logic + Countdown)
+// 💬 Send Message
 async function sendMessage() {
   if (countdownActive) return alert('Please wait before sending again');
   
@@ -71,7 +68,6 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text || !chatId) return;
 
-  // 🎟️ Check Token Status
   const isNewContact = !knownContacts.includes(chatId);
   let spendToken = false;
 
@@ -80,11 +76,10 @@ async function sendMessage() {
     if (!confirmSend) return;
     spendToken = true;
   } else if (isNewContact && tokens === 0) {
-    const forceSend = confirm(`⚠️ You have 0 Tokens. You can still send, but profile reveal will be delayed. Continue?`);
+    const forceSend = confirm(`⚠️ You have 0 Tokens. Continue?`);
     if (!forceSend) return;
   }
 
-  // Send to Telegram
   try {
     const res = await fetch(`${API_URL}/sendMessage`, {
       method: 'POST',
@@ -93,10 +88,9 @@ async function sendMessage() {
     });
     
     if (res.ok) {
-      addMessageToUI(text, 'sent');
+      addMessageToUI(text, 'sent', Date.now());
       input.value = '';
       
-      // Update State
       if (spendToken) {
         tokens--;
         localStorage.setItem('pase_tokens', tokens);
@@ -107,9 +101,9 @@ async function sendMessage() {
         localStorage.setItem('pase_knownContacts', JSON.stringify(knownContacts));
       }
       
-      startCountdown(); // 🔒 Feature #1
+      startCountdown();
     } else {
-      alert('Failed to send. Check your Bot Token.');
+      alert('Failed to send.');
     }
   } catch (err) {
     alert('Error: ' + err.message);
@@ -138,52 +132,56 @@ function startCountdown() {
   }, 1000);
 }
 
-// 📥 Receive Messages (Polling) - FIXED for duplicates
+// 📥 Receive Messages (FIXED - Show ALL messages in chat)
 async function startPolling() {
   setInterval(async () => {
     if (!chatId) return;
     
     try {
-      // Use lastUpdateId to get ONLY new messages
       const url = `${API_URL}/getUpdates?offset=${lastUpdateId}&timeout=30`;
       const res = await fetch(url);
       const data = await res.json();
       
       if (data.result && data.result.length > 0) {
         data.result.forEach(update => {
-          // Only process messages from this chat
-          if (update.message && update.message.chat.id == chatId) {
-            const text = update.message.text;
-            const fromId = update.message.from.id;
+          if (update.message) {
+            const msg = update.message;
             const messageId = update.update_id;
             
-            // Avoid duplicates: check if we already rendered this
-            const alreadyRendered = document.querySelector(`[data-msg-id="${messageId}"]`);
-            
-            if (!alreadyRendered) {
-              // Determine if sent or received
-              const type = fromId == chatId ? 'sent' : 'received';
-              addMessageToUI(text, type, messageId);
+            // Check if this message is in OUR chat (chat with this user)
+            if (msg.chat.id == chatId) {
+              const text = msg.text;
+              const fromId = msg.from.id;
+              
+              // Prevent duplicates
+              const alreadyRendered = document.querySelector(`[data-msg-id="${messageId}"]`);
+              
+              if (!alreadyRendered && text) {
+                // If sender is me → sent, otherwise → received
+                const type = fromId == chatId ? 'sent' : 'received';
+                addMessageToUI(text, type, messageId);
+              }
             }
+            
+            // Always update offset
+            lastUpdateId = update.update_id + 1;
+            localStorage.setItem('pase_lastUpdateId', lastUpdateId);
           }
-          // Always update offset to avoid re-fetching
-          lastUpdateId = update.update_id + 1;
-          localStorage.setItem('pase_lastUpdateId', lastUpdateId);
         });
       }
     } catch (err) { 
       console.log('Poll error:', err); 
     }
-  }, 1000); // Poll every 1 second
+  }, 1000);
 }
 
-// 🎨 UI Helper - Updated with data attribute to prevent duplicates
+// 🎨 UI Helper
 function addMessageToUI(text, type, msgId) {
   const div = document.createElement('div');
   div.className = `message ${type}`;
-  div.setAttribute('data-msg-id', msgId); // Unique ID to prevent duplicates
+  div.setAttribute('data-msg-id', msgId);
   div.innerText = text;
   const container = document.getElementById('messages');
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
-          }
+}
