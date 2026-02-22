@@ -3,7 +3,7 @@ const BOT_TOKEN = '8393616041:AAFiikss8moFzdTA6xF-QmEKZG_zkYL41DQ';
 const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // 🌍 Global State
-let chatId = localStorage.getItem('pase_chatId');
+let myUserId = localStorage.getItem('pase_chatId');
 let countdownActive = false;
 let lastUpdateId = parseInt(localStorage.getItem('pase_lastUpdateId')) || 0;
 
@@ -15,16 +15,18 @@ let knownContacts = JSON.parse(localStorage.getItem('pase_knownContacts')) || []
 let messageCounts = JSON.parse(localStorage.getItem('pase_messageCounts')) || {};
 
 // 👻 Ghost Reply State
-let replyingTo = null; // { msgId, text }
+let replyingTo = null; // { telegramMsgId, text }
+
+// 🗄️ Store Telegram message IDs we send
+let sentMessageIds = JSON.parse(localStorage.getItem('pase_sentMessageIds')) || {};
 
 // 🚀 Initialize
 window.onload = () => {
   checkWeeklyReset();
   updateTokenUI();
-  if (chatId) showChatScreen();
+  if (myUserId) showChatScreen();
   startPolling();
   
-  // Setup profile click handler
   const header = document.querySelector('#chat-screen header h2');
   if (header) {
     header.style.cursor = 'pointer';
@@ -57,7 +59,7 @@ function login() {
   const userId = document.getElementById('user-id').value.trim();
   if (!userId) return alert('Please enter your Telegram User ID');
   localStorage.setItem('pase_chatId', userId);
-  chatId = userId;
+  myUserId = userId;
   showChatScreen();
 }
 
@@ -74,9 +76,9 @@ function logout() {
 
 // 📊 Profile Reveal
 function incrementMessageCount() {
-  messageCounts[chatId] = (messageCounts[chatId] || 0) + 1;
+  messageCounts[myUserId] = (messageCounts[myUserId] || 0) + 1;
   localStorage.setItem('pase_messageCounts', JSON.stringify(messageCounts));
-  return messageCounts[chatId];
+  return messageCounts[myUserId];
 }
 
 function getRevealLevel(count) {
@@ -86,7 +88,7 @@ function getRevealLevel(count) {
 }
 
 function openProfile() {
-  const count = messageCounts[chatId] || 0;
+  const count = messageCounts[myUserId] || 0;
   const level = getRevealLevel(count);
   document.getElementById('profile-name').innerText = `User (${count} messages)`;
   
@@ -116,8 +118,8 @@ function closeProfile() {
 }
 
 // 👻 Ghost Reply Functions
-function startReply(msgId, text) {
-  replyingTo = { msgId, text: text.substring(0, 50) + (text.length > 50 ? '...' : '') };
+function startReply(telegramMsgId, text) {
+  replyingTo = { telegramMsgId, text: text.substring(0, 50) + (text.length > 50 ? '...' : '') };
   document.getElementById('reply-text').innerText = replyingTo.text;
   document.getElementById('reply-preview').classList.remove('hidden');
 }
@@ -127,15 +129,15 @@ function cancelReply() {
   document.getElementById('reply-preview').classList.add('hidden');
 }
 
-// 💬 Send Message (with Ghost Reply support)
+// 💬 Send Message (FIXED)
 async function sendMessage() {
   if (countdownActive) return alert('Please wait before sending again');
   
   const input = document.getElementById('message-input');
   const text = input.value.trim();
-  if (!text || !chatId) return;
+  if (!text || !myUserId) return;
 
-  const isNewContact = !knownContacts.includes(chatId);
+  const isNewContact = !knownContacts.includes(myUserId);
   let spendToken = false;
 
   if (isNewContact && tokens > 0) {
@@ -149,9 +151,14 @@ async function sendMessage() {
 
   try {
     // Build payload
-    const payload = { chat_id: chatId, text };
-    if (replyingTo && replyingTo.msgId) {
-      payload.reply_to_message_id = replyingTo.msgId;
+    const payload = { 
+      chat_id: myUserId, 
+      text: text
+    };
+    
+    // Add reply_to_message_id ONLY if we have a valid Telegram message ID
+    if (replyingTo && replyingTo.telegramMsgId && !isNaN(replyingTo.telegramMsgId)) {
+      payload.reply_to_message_id = parseInt(replyingTo.telegramMsgId);
     }
 
     const res = await fetch(`${API_URL}/sendMessage`, {
@@ -160,16 +167,24 @@ async function sendMessage() {
       body: JSON.stringify(payload)
     });
     
-    if (res.ok) {
+    const data = await res.json();
+    
+    if (res.ok && data.ok) {
+      // Store the Telegram message_id for future replies
+      const telegramMsgId = data.result.message_id;
+      const localId = Date.now();
+      sentMessageIds[localId] = telegramMsgId;
+      localStorage.setItem('pase_sentMessageIds', JSON.stringify(sentMessageIds));
+      
       const count = incrementMessageCount();
       
       // Add ghost reply UI if replying
       if (replyingTo) {
-        addMessageToUI(replyingTo.text, 'ghost', `ghost-${Date.now()}`);
-        cancelReply(); // Clear reply state
+        addMessageToUI(replyingTo.text, 'ghost', `ghost-${localId}`);
+        cancelReply();
       }
       
-      addMessageToUI(text, 'sent', Date.now());
+      addMessageToUI(text, 'sent', localId);
       input.value = '';
       
       if (spendToken) {
@@ -178,15 +193,17 @@ async function sendMessage() {
         updateTokenUI();
       }
       if (isNewContact) {
-        knownContacts.push(chatId);
+        knownContacts.push(myUserId);
         localStorage.setItem('pase_knownContacts', JSON.stringify(knownContacts));
       }
       
       startCountdown();
     } else {
-      alert('Failed to send.');
+      console.error('Send error:', data);
+      alert('Failed to send: ' + (data.description || 'Unknown error'));
     }
   } catch (err) {
+    console.error('Send error:', err);
     alert('Error: ' + err.message);
   }
 }
@@ -213,10 +230,10 @@ function startCountdown() {
   }, 1000);
 }
 
-// 📥 Receive Messages
+// 📥 Receive Messages (FIXED - Better left/right detection)
 async function startPolling() {
   setInterval(async () => {
-    if (!chatId) return;
+    if (!myUserId) return;
     try {
       const url = `${API_URL}/getUpdates?offset=${lastUpdateId}&timeout=30`;
       const res = await fetch(url);
@@ -226,26 +243,40 @@ async function startPolling() {
         data.result.forEach(update => {
           if (update.message) {
             const msg = update.message;
-            const messageId = update.update_id;
+            const updateId = update.update_id;
             
-            if (msg.chat.id == chatId && msg.text) {
+            // Only process messages in THIS chat
+            if (msg.chat.id.toString() == myUserId.toString() && msg.text) {
               const text = msg.text;
-              const fromId = msg.from.id;
-              const alreadyRendered = document.querySelector(`[data-msg-id="${messageId}"]`);
+              const fromId = msg.from.id.toString();
+              const telegramMsgId = msg.message_id;
+              
+              // Prevent duplicates
+              const alreadyRendered = document.querySelector(`[data-msg-id="${updateId}"]`);
               
               if (!alreadyRendered) {
-                const type = (fromId == chatId) ? 'sent' : 'received';
+                // FIXED: Compare as strings
+                // If I sent it (my user ID) → sent (right)
+                // If someone else sent it → received (left)
+                const type = (fromId == myUserId.toString()) ? 'sent' : 'received';
                 
                 // Handle reply context from Telegram
                 if (msg.reply_to_message && msg.reply_to_message.text) {
-                  // Add ghost reply first
-                  addMessageToUI(msg.reply_to_message.text, 'ghost', `ghost-${messageId}`);
+                  addMessageToUI(msg.reply_to_message.text, 'ghost', `ghost-${updateId}`);
                 }
                 
-                addMessageToUI(text, type, messageId);
+                // Store incoming telegram message IDs for replies
+                if (type === 'received') {
+                  const localId = Date.now() + Math.random();
+                  sentMessageIds[localId] = telegramMsgId;
+                  localStorage.setItem('pase_sentMessageIds', JSON.stringify(sentMessageIds));
+                  addMessageToUI(text, type, localId);
+                } else {
+                  addMessageToUI(text, type, updateId);
+                }
               }
             }
-            lastUpdateId = update.update_id + 1;
+            lastUpdateId = updateId + 1;
             localStorage.setItem('pase_lastUpdateId', lastUpdateId);
           }
         });
@@ -264,23 +295,24 @@ function addMessageToUI(text, type, msgId) {
   // Add long-press for ghost reply (only on non-ghost messages)
   if (type !== 'ghost') {
     let pressTimer;
-    div.addEventListener('touchstart', (e) => {
+    
+    const startPress = (e) => {
       e.preventDefault();
       pressTimer = setTimeout(() => {
-        startReply(msgId, text);
-      }, 500); // 500ms = long press
-    });
-    div.addEventListener('touchend', () => clearTimeout(pressTimer));
-    div.addEventListener('touchcancel', () => clearTimeout(pressTimer));
-    
-    // Desktop fallback
-    div.addEventListener('mousedown', (e) => {
-      pressTimer = setTimeout(() => {
-        startReply(msgId, text);
+        // Get the telegram message ID
+        const telegramMsgId = sentMessageIds[msgId] || msgId;
+        startReply(telegramMsgId, text);
       }, 500);
-    });
-    div.addEventListener('mouseup', () => clearTimeout(pressTimer));
-    div.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+    };
+    
+    const cancelPress = () => clearTimeout(pressTimer);
+    
+    div.addEventListener('touchstart', startPress);
+    div.addEventListener('touchend', cancelPress);
+    div.addEventListener('touchcancel', cancelPress);
+    div.addEventListener('mousedown', startPress);
+    div.addEventListener('mouseup', cancelPress);
+    div.addEventListener('mouseleave', cancelPress);
   }
   
   const container = document.getElementById('messages');
