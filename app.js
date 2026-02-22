@@ -2,12 +2,13 @@
 const BOT_TOKEN = '8393616041:AAFiikss8moFzdTA6xF-QmEKZG_zkYL41DQ'; 
 const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+// 🌍 Global State
 let chatId = localStorage.getItem('pase_chatId');
 let countdownActive = false;
+let lastUpdateId = parseInt(localStorage.getItem('pase_lastUpdateId')) || 0;
 
-// 🎟️ Token State
+// 🎟️ Token System State
 let tokens = parseInt(localStorage.getItem('pase_tokens')) || 1;
-let lastReset = localStorage.getItem('pase_lastReset');
 let knownContacts = JSON.parse(localStorage.getItem('pase_knownContacts')) || [];
 
 // 🚀 Initialize
@@ -22,14 +23,15 @@ window.onload = () => {
 function checkWeeklyReset() {
   const now = new Date();
   const day = now.getDay(); // 0 = Sunday
-  const last = lastReset ? new Date(lastReset) : null;
+  const last = localStorage.getItem('pase_lastReset');
   
   // If it's Sunday and we haven't reset yet this week
-  if (day === 0 && (!last || now - last > 604800000)) {
+  if (day === 0 && (!last || now - new Date(last) > 604800000)) {
     tokens = 1;
     localStorage.setItem('pase_tokens', tokens);
     localStorage.setItem('pase_lastReset', now.toISOString());
-    alert('🎟️ New week! Your Intro Token has been refreshed.');
+    // Optional: alert user
+    // alert('🎟️ New week! Your Intro Token has been refreshed.');
   }
 }
 
@@ -61,7 +63,7 @@ function logout() {
   location.reload();
 }
 
-// 💬 Send Message (with Token Logic)
+// 💬 Send Message (with Token Logic + Countdown)
 async function sendMessage() {
   if (countdownActive) return alert('Please wait before sending again');
   
@@ -80,7 +82,6 @@ async function sendMessage() {
   } else if (isNewContact && tokens === 0) {
     const forceSend = confirm(`⚠️ You have 0 Tokens. You can still send, but profile reveal will be delayed. Continue?`);
     if (!forceSend) return;
-    // No token spent, but flagged (future feature)
   }
 
   // Send to Telegram
@@ -137,32 +138,52 @@ function startCountdown() {
   }, 1000);
 }
 
-// 📥 Receive Messages (Polling)
+// 📥 Receive Messages (Polling) - FIXED for duplicates
 async function startPolling() {
-  let offset = 0;
   setInterval(async () => {
     if (!chatId) return;
+    
     try {
-      const res = await fetch(`${API_URL}/getUpdates?offset=${offset}`);
+      // Use lastUpdateId to get ONLY new messages
+      const url = `${API_URL}/getUpdates?offset=${lastUpdateId}&timeout=30`;
+      const res = await fetch(url);
       const data = await res.json();
+      
       if (data.result && data.result.length > 0) {
         data.result.forEach(update => {
+          // Only process messages from this chat
           if (update.message && update.message.chat.id == chatId) {
-            addMessageToUI(update.message.text, 'received');
-            offset = update.update_id + 1;
+            const text = update.message.text;
+            const fromId = update.message.from.id;
+            const messageId = update.update_id;
+            
+            // Avoid duplicates: check if we already rendered this
+            const alreadyRendered = document.querySelector(`[data-msg-id="${messageId}"]`);
+            
+            if (!alreadyRendered) {
+              // Determine if sent or received
+              const type = fromId == chatId ? 'sent' : 'received';
+              addMessageToUI(text, type, messageId);
+            }
           }
+          // Always update offset to avoid re-fetching
+          lastUpdateId = update.update_id + 1;
+          localStorage.setItem('pase_lastUpdateId', lastUpdateId);
         });
       }
-    } catch (err) { console.log(err); }
-  }, 2000);
+    } catch (err) { 
+      console.log('Poll error:', err); 
+    }
+  }, 1000); // Poll every 1 second
 }
 
-// 🎨 UI Helper
-function addMessageToUI(text, type) {
+// 🎨 UI Helper - Updated with data attribute to prevent duplicates
+function addMessageToUI(text, type, msgId) {
   const div = document.createElement('div');
   div.className = `message ${type}`;
+  div.setAttribute('data-msg-id', msgId); // Unique ID to prevent duplicates
   div.innerText = text;
   const container = document.getElementById('messages');
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
-  }
+          }
