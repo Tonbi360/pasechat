@@ -53,8 +53,26 @@
       <h3>📅 Scheduled</h3>
       <button onclick="toggleScheduled()" class="close-btn">✕</button>
     </div>
+    
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <button onclick="openScheduleModal()" class="primary-btn">+ New Message</button>
+    </div>
+    
+    <!-- Next Message Countdown -->
+    <div id="next-message-countdown" class="countdown hidden">
+      <p>Next message in:</p>
+      <p class="countdown-time" id="countdown-timer">--:--</p>
+    </div>
+    
+    <!-- Scheduled List -->
     <div id="scheduled-list"></div>
-    <p class="empty-msg" id="scheduled-empty">No scheduled messages</p>
+    
+    <!-- Empty State -->
+    <div class="empty-state" id="scheduled-empty">
+      <p>📭 No scheduled messages</p>
+      <p class="hint">Tap "+ New Message" to schedule one</p>
+    </div>
   </div>
 
   <!-- Profile Modal (Progressive Reveal) -->
@@ -93,10 +111,20 @@
     <div class="modal-content">
       <button onclick="closeScheduleModal()" class="close-btn">✕</button>
       <h3>📅 Schedule Message</h3>
-      <input type="text" id="schedule-text" placeholder="Message..." />
+      
+      <input type="text" id="schedule-text" placeholder="What do you want to say?" />
+      
       <label>Send at:</label>
       <input type="datetime-local" id="schedule-time" />
-      <button onclick="confirmSchedule()" class="primary-btn">Schedule</button>
+      
+      <!-- Quick Time Buttons -->
+      <div class="quick-times">
+        <button onclick="setQuickTime(1)" class="quick-time-btn">1 min</button>
+        <button onclick="setQuickTime(60)" class="quick-time-btn">1 hour</button>
+        <button onclick="setQuickTime(1440)" class="quick-time-btn">Tomorrow</button>
+      </div>
+      
+      <button onclick="confirmSchedule()" class="primary-btn">Schedule Message</button>
     </div>
   </div>
 
