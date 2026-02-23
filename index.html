@@ -30,6 +30,16 @@
     <!-- Token Display -->
     <div id="token-display">🎟️ 1</div>
     
+    <!-- Voice Window Banner (Hidden by default) -->
+    <div id="voice-window-banner" class="voice-banner hidden">
+      <div class="voice-info">
+        <span class="voice-icon">🎙️</span>
+        <p>Voice Window Active</p>
+        <span class="voice-time" id="voice-countdown">14:59</span>
+      </div>
+      <button onclick="exitVoiceWindow()" class="skip-btn" title="Exit voice mode">✕</button>
+    </div>
+    
     <!-- Messages Container -->
     <div id="messages"></div>
 
@@ -43,6 +53,7 @@
     <!-- Input Area -->
     <div class="input-area">
       <input type="text" id="message-input" placeholder="Type a message..." />
+      <button id="mic-btn" class="mic-btn" onclick="sendVoiceNote()" title="Send voice note">🎤</button>
       <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
   </div>
@@ -128,6 +139,18 @@
     </div>
   </div>
 
+  <!-- Voice Window Exit Confirmation (Hidden by default) -->
+  <div id="voice-exit-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>🎙️ Exit Voice Mode?</h3>
+      <p>Text will be enabled for this message only. Voice Window will resume after.</p>
+      <div class="modal-actions">
+        <button onclick="closeVoiceExitModal()" class="secondary">Stay in Voice Mode</button>
+        <button onclick="confirmExitVoiceWindow()" class="primary-btn">Exit Temporarily</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
   <script>
     // Register Service Worker for PWA
@@ -136,4 +159,4 @@
     }
   </script>
 </body>
-</html>
+          </html>
