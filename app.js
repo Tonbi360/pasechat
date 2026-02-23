@@ -1,6 +1,6 @@
 // ⚙️ CONFIGURATION
 const BOT_TOKEN = '8393616041:AAFiikss8moFzdTA6xF-QmEKZG_zkYL41DQ'; 
-const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`; // Fixed: removed space
 
 // 🌍 Global State
 let myUserId = localStorage.getItem('pase_chatId');
@@ -23,24 +23,36 @@ let sentTelegramMsgIds = JSON.parse(localStorage.getItem('pase_sentTelegramMsgId
 // 📅 Scheduled Messages State
 let scheduledMessages = JSON.parse(localStorage.getItem('pase_scheduledMessages')) || [];
 
+// ⏱️ Countdown Timer State
+let countdownInterval = null;
+
 // 🚀 Initialize
 window.onload = () => {
   checkWeeklyReset();
   updateTokenUI();
   if (myUserId) showChatScreen();
   startPolling();
-  checkScheduledMessages(); // Check every second for scheduled msgs
+  checkScheduledMessages();
   
+  // Setup profile click handler
   const header = document.querySelector('#chat-screen header h2');
   if (header) {
     header.style.cursor = 'pointer';
     header.addEventListener('click', openProfile);
   }
   
-  // Set minimum datetime to now
+  // Set minimum datetime to now for schedule picker
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  document.getElementById('schedule-time').min = now.toISOString().slice(0, 16);
+  const scheduleInput = document.getElementById('schedule-time');
+  if (scheduleInput) {
+    scheduleInput.min = now.toISOString().slice(0, 16);
+  }
+  
+  // Request notification permission
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
 };
 
 // 🗓️ Weekly Reset
@@ -147,16 +159,32 @@ function toggleScheduled() {
   panel.classList.toggle('hidden');
   if (!panel.classList.contains('hidden')) {
     renderScheduledMessages();
+    startCountdownTimer();
+  } else {
+    stopCountdownTimer();
   }
 }
 
 function openScheduleModal() {
   document.getElementById('schedule-text').value = '';
   document.getElementById('schedule-modal').classList.remove('hidden');
+  
+  // Set default time to now + 1 minute
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 1);
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('schedule-time').value = now.toISOString().slice(0, 16);
 }
 
 function closeScheduleModal() {
   document.getElementById('schedule-modal').classList.add('hidden');
+}
+
+function setQuickTime(minutes) {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + minutes);
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('schedule-time').value = now.toISOString().slice(0, 16);
 }
 
 function confirmSchedule() {
@@ -182,13 +210,46 @@ function confirmSchedule() {
   
   closeScheduleModal();
   renderScheduledMessages();
-  alert('✅ Message scheduled!');
+  alert('✅ Message scheduled for ' + new Date(scheduledTime).toLocaleString());
 }
 
 function cancelScheduled(id) {
   scheduledMessages = scheduledMessages.filter(msg => msg.id !== id);
   localStorage.setItem('pase_scheduledMessages', JSON.stringify(scheduledMessages));
   renderScheduledMessages();
+}
+
+function startCountdownTimer() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  updateCountdown();
+  countdownInterval = setInterval(updateCountdown, 1000);
+}
+
+function stopCountdownTimer() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
+function updateCountdown() {
+  const now = Date.now();
+  const upcoming = scheduledMessages
+    .filter(msg => msg.scheduledTime > now)
+    .sort((a, b) => a.scheduledTime - b.scheduledTime)[0];
+  
+  const countdownEl = document.getElementById('next-message-countdown');
+  const timerEl = document.getElementById('countdown-timer');
+  
+  if (upcoming) {
+    countdownEl.classList.remove('hidden');
+    const diff = upcoming.scheduledTime - now;
+    const minutes = Math.floor(diff / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else {
+    countdownEl.classList.add('hidden');
+  }
 }
 
 function renderScheduledMessages() {
@@ -199,6 +260,7 @@ function renderScheduledMessages() {
   
   if (scheduledMessages.length === 0) {
     empty.classList.remove('hidden');
+    document.getElementById('next-message-countdown')?.classList.add('hidden');
     return;
   }
   
@@ -207,13 +269,19 @@ function renderScheduledMessages() {
   scheduledMessages.sort((a, b) => a.scheduledTime - b.scheduledTime).forEach(msg => {
     const div = document.createElement('div');
     div.className = 'scheduled-item';
+    
+    const timeStr = new Date(msg.scheduledTime).toLocaleString();
+    const isSoon = msg.scheduledTime - Date.now() < 60000;
+    
     div.innerHTML = `
       <p>${msg.text}</p>
-      <p class="time">🕐 ${new Date(msg.scheduledTime).toLocaleString()}</p>
+      <p class="time ${isSoon ? 'urgent' : ''}">🕐 ${timeStr}</p>
       <button onclick="cancelScheduled(${msg.id})">Cancel</button>
     `;
     list.appendChild(div);
   });
+  
+  updateCountdown();
 }
 
 function checkScheduledMessages() {
@@ -223,24 +291,22 @@ function checkScheduledMessages() {
     
     if (due.length > 0) {
       due.forEach(msg => {
-        // Send the message
         sendScheduledMessage(msg);
-        // Remove from scheduled
         scheduledMessages = scheduledMessages.filter(m => m.id !== msg.id);
         localStorage.setItem('pase_scheduledMessages', JSON.stringify(scheduledMessages));
       });
       renderScheduledMessages();
+    }
+    
+    if (!document.getElementById('scheduled-panel')?.classList.contains('hidden')) {
+      updateCountdown();
     }
   }, 1000);
 }
 
 async function sendScheduledMessage(msg) {
   try {
-    const payload = { 
-      chat_id: myUserId, 
-      text: msg.text
-    };
-
+    const payload = { chat_id: myUserId, text: msg.text };
     const res = await fetch(`${API_URL}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -257,6 +323,14 @@ async function sendScheduledMessage(msg) {
       incrementMessageCount();
       addMessageToUI(msg.text, 'sent', telegramMsgId);
       startCountdown();
+      
+      // Browser notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Pase Chat', {
+          body: `Sent: "${msg.text.substring(0, 30)}${msg.text.length > 30 ? '...' : ''}"`,
+          icon: '🚶'
+        });
+      }
     }
   } catch (err) {
     console.error('Scheduled send error:', err);
@@ -284,10 +358,7 @@ async function sendMessage() {
   }
 
   try {
-    const payload = { 
-      chat_id: myUserId, 
-      text: text
-    };
+    const payload = { chat_id: myUserId, text: text };
     
     if (replyingTo && replyingTo.telegramMsgId) {
       payload.reply_to_message_id = replyingTo.telegramMsgId;
