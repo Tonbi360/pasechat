@@ -26,6 +26,10 @@ let scheduledMessages = JSON.parse(localStorage.getItem('pase_scheduledMessages'
 // ⏱️ Countdown Timer State
 let countdownInterval = null;
 
+// 🎙️ Voice Window State
+let voiceWindow = JSON.parse(localStorage.getItem('pase_voiceWindow')) || null;
+let voiceExitTimer = null;
+
 // 🚀 Initialize
 window.onload = () => {
   checkWeeklyReset();
@@ -33,6 +37,7 @@ window.onload = () => {
   if (myUserId) showChatScreen();
   startPolling();
   checkScheduledMessages();
+  checkVoiceWindow(); // Check if voice window is active
   
   // Setup profile click handler
   const header = document.querySelector('#chat-screen header h2');
@@ -169,7 +174,6 @@ function openScheduleModal() {
   document.getElementById('schedule-text').value = '';
   document.getElementById('schedule-modal').classList.remove('hidden');
   
-  // Set default time to now + 1 minute
   const now = new Date();
   now.setMinutes(now.getMinutes() + 1);
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -324,7 +328,6 @@ async function sendScheduledMessage(msg) {
       addMessageToUI(msg.text, 'sent', telegramMsgId);
       startCountdown();
       
-      // Browser notification
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Pase Chat', {
           body: `Sent: "${msg.text.substring(0, 30)}${msg.text.length > 30 ? '...' : ''}"`,
@@ -337,9 +340,142 @@ async function sendScheduledMessage(msg) {
   }
 }
 
-// 💬 Send Message
+// 🎙️ Voice Window Functions
+function checkVoiceWindow() {
+  if (!voiceWindow) return hideVoiceBanner();
+  
+  const now = Date.now();
+  const start = voiceWindow.startTime;
+  const end = voiceWindow.endTime;
+  
+  if (now >= start && now <= end) {
+    showVoiceBanner(end - now);
+    enableVoiceMode();
+  } else if (now > end) {
+    voiceWindow = null;
+    localStorage.removeItem('pase_voiceWindow');
+    hideVoiceBanner();
+    disableVoiceMode();
+  } else {
+    hideVoiceBanner();
+    disableVoiceMode();
+  }
+}
+
+function showVoiceBanner(remainingMs) {
+  const banner = document.getElementById('voice-window-banner');
+  const countdown = document.getElementById('voice-countdown');
+  
+  if (!banner) return;
+  
+  banner.classList.remove('hidden');
+  
+  const update = () => {
+    const now = Date.now();
+    const left = voiceWindow.endTime - now;
+    if (left <= 0) {
+      hideVoiceBanner();
+      disableVoiceMode();
+      return;
+    }
+    const mins = Math.floor(left / 60000);
+    const secs = Math.floor((left % 60000) / 1000);
+    countdown.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+  };
+  
+  update();
+  const interval = setInterval(update, 1000);
+  banner.dataset.interval = interval;
+}
+
+function hideVoiceBanner() {
+  const banner = document.getElementById('voice-window-banner');
+  if (!banner) return;
+  banner.classList.add('hidden');
+  if (banner.dataset.interval) {
+    clearInterval(parseInt(banner.dataset.interval));
+    delete banner.dataset.interval;
+  }
+}
+
+function enableVoiceMode() {
+  const inputArea = document.querySelector('.input-area');
+  if (inputArea) inputArea.classList.add('voice-mode');
+  const sendBtn = document.getElementById('send-btn');
+  if (sendBtn) sendBtn.disabled = true;
+  const micBtn = document.getElementById('mic-btn');
+  if (micBtn) micBtn.disabled = false;
+}
+
+function disableVoiceMode() {
+  const inputArea = document.querySelector('.input-area');
+  if (inputArea) inputArea.classList.remove('voice-mode');
+  const sendBtn = document.getElementById('send-btn');
+  if (sendBtn) sendBtn.disabled = false;
+}
+
+function exitVoiceWindow() {
+  const modal = document.getElementById('voice-exit-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeVoiceExitModal() {
+  const modal = document.getElementById('voice-exit-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function confirmExitVoiceWindow() {
+  closeVoiceExitModal();
+  
+  // Temporarily disable voice mode
+  disableVoiceMode();
+  
+  // Re-enable after 5 seconds
+  if (voiceExitTimer) clearTimeout(voiceExitTimer);
+  voiceExitTimer = setTimeout(() => {
+    if (voiceWindow && Date.now() <= voiceWindow.endTime) {
+      enableVoiceMode();
+    }
+  }, 5000);
+  
+  // Also re-enable after next message send
+  const originalSend = window.sendMessage;
+  window.sendMessage = function() {
+    if (voiceExitTimer) clearTimeout(voiceExitTimer);
+    if (voiceWindow && Date.now() <= voiceWindow.endTime) {
+      enableVoiceMode();
+    }
+    window.sendMessage = originalSend;
+    return originalSend.apply(this, arguments);
+  };
+}
+
+// 🎤 Send Voice Note (placeholder)
+async function sendVoiceNote() {
+  if (!myUserId) return;
+  alert('🎤 Voice notes require Telegram Bot API setup.\n\nFor now: Record in Telegram → Forward to this chat!');
+}
+
+// Test helper: Set voice window (console)
+function setTestVoiceWindow(minutes) {
+  const now = Date.now();
+  voiceWindow = { startTime: now, endTime: now + (minutes * 60000) };
+  localStorage.setItem('pase_voiceWindow', JSON.stringify(voiceWindow));
+  checkVoiceWindow();
+  alert(`🎙️ Voice Window set for ${minutes} minutes`);
+}
+
+// 💬 Send Message (with Voice Window check)
 async function sendMessage() {
   if (countdownActive) return alert('Please wait before sending again');
+  
+  // Check voice window
+  if (voiceWindow && Date.now() >= voiceWindow.startTime && Date.now() <= voiceWindow.endTime) {
+    const inputArea = document.querySelector('.input-area');
+    if (inputArea && inputArea.classList.contains('voice-mode')) {
+      return alert('🎙️ Voice Window active. Use the mic button, or tap ✕ to exit temporarily.');
+    }
+  }
   
   const input = document.getElementById('message-input');
   const text = input.value.trim();
@@ -500,6 +636,8 @@ function addMessageToUI(text, type, msgId) {
   }
   
   const container = document.getElementById('messages');
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  if (container) {
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
 }
