@@ -30,14 +30,24 @@ let countdownInterval = null;
 let voiceWindow = JSON.parse(localStorage.getItem('pase_voiceWindow')) || null;
 let voiceExitTimer = null;
 
+// 📄 PAGINATION STATE (Feature E)
+let currentPage = 1;
+const MESSAGES_PER_PAGE = 20;
+let hasMoreMessages = true;
+let isLoadingOlder = false;
+let allMessages = []; // Mock data store for pagination demo
+
 // 🚀 Initialize
 window.onload = () => {
   checkWeeklyReset();
   updateTokenUI();
-  if (myUserId) showChatScreen();
+  if (myUserId) {
+    showChatScreen();
+    initPagination(); // Initialize pagination on login
+  }
   startPolling();
   checkScheduledMessages();
-  checkVoiceWindow(); // Check if voice window is active
+  checkVoiceWindow();
   
   // Setup profile click handler
   const header = document.querySelector('#chat-screen header h2');
@@ -46,7 +56,7 @@ window.onload = () => {
     header.addEventListener('click', openProfile);
   }
   
-  // Set minimum datetime to now for schedule picker
+  // Set minimum datetime for schedule picker
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   const scheduleInput = document.getElementById('schedule-time');
@@ -426,11 +436,8 @@ function closeVoiceExitModal() {
 
 function confirmExitVoiceWindow() {
   closeVoiceExitModal();
-  
-  // Temporarily disable voice mode
   disableVoiceMode();
   
-  // Re-enable after 5 seconds
   if (voiceExitTimer) clearTimeout(voiceExitTimer);
   voiceExitTimer = setTimeout(() => {
     if (voiceWindow && Date.now() <= voiceWindow.endTime) {
@@ -438,7 +445,6 @@ function confirmExitVoiceWindow() {
     }
   }, 5000);
   
-  // Also re-enable after next message send
   const originalSend = window.sendMessage;
   window.sendMessage = function() {
     if (voiceExitTimer) clearTimeout(voiceExitTimer);
@@ -456,7 +462,7 @@ async function sendVoiceNote() {
   alert('🎤 Voice notes require Telegram Bot API setup.\n\nFor now: Record in Telegram → Forward to this chat!');
 }
 
-// Test helper: Set voice window (console)
+// Test helper: Set voice window
 function setTestVoiceWindow(minutes) {
   const now = Date.now();
   voiceWindow = { startTime: now, endTime: now + (minutes * 60000) };
@@ -465,7 +471,143 @@ function setTestVoiceWindow(minutes) {
   alert(`🎙️ Voice Window set for ${minutes} minutes`);
 }
 
-// 💬 Send Message (with Voice Window check)
+// ========================================
+// 📄 PAGINATION LOGIC (Feature E)
+// ========================================
+
+function initPagination() {
+  // Generate mock messages for testing pagination
+  generateMockMessages();
+  // Render first page
+  renderPage(1);
+  // Update UI controls
+  updatePaginationUI();
+}
+
+function generateMockMessages() {
+  // Create 75 mock messages for testing (3.75 pages)
+  if (allMessages.length > 0) return; // Don't regenerate
+  
+  const mockTexts = [
+    "Hey there! 👋", "How's your day going?", "Just thinking about our last chat",
+    "Did you see that movie?", "I love this app so far", "Pase is really growing on me",
+    "What's your favorite feature?", "The countdown timer is genius", "Voice windows are cool",
+    "I scheduled a message for tomorrow!", "Ghost replies make context so clear",
+    "Progressive reveal is such a nice touch", "Can't wait for more features",
+    "This feels like the future of chat", "Intentional messaging > spam",
+    "Love the token system", "Makes me think before I send", "Quality over quantity",
+    "The UI is so clean", "Dark mode would be nice though", "Maybe in Phase 2? 😉",
+    "Anyway, what's new with you?", "Still working on that project?", "Let me know when you're free",
+    "No rush, just checking in", "Hope you're doing well", "Talk soon! ✨"
+  ];
+  
+  for (let i = 1; i <= 75; i++) {
+    const isSent = i % 2 === 0; // Alternate sent/received for demo
+    allMessages.push({
+      id: `mock-${i}`,
+      text: mockTexts[(i - 1) % mockTexts.length] + ` (Msg #${i})`,
+      type: isSent ? 'sent' : 'received',
+      timestamp: Date.now() - (75 - i) * 60000, // 1 min apart
+      telegramMsgId: `tg-${i}`
+    });
+  }
+  
+  // Sort oldest first (for pagination loading older)
+  allMessages.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+function renderPage(pageNum) {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  
+  // Clear current messages
+  container.innerHTML = '';
+  
+  // Calculate slice indices
+  const startIndex = (pageNum - 1) * MESSAGES_PER_PAGE;
+  const endIndex = startIndex + MESSAGES_PER_PAGE;
+  const pageMessages = allMessages.slice(startIndex, endIndex);
+  
+  // Render messages
+  pageMessages.forEach(msg => {
+    addMessageToUI(msg.text, msg.type, msg.id);
+  });
+  
+  // Update state
+  currentPage = pageNum;
+  hasMoreMessages = endIndex < allMessages.length;
+  
+  // Scroll to bottom (newest messages)
+  container.scrollTop = container.scrollHeight;
+  
+  // Update UI
+  updatePaginationUI();
+}
+
+function updatePaginationUI() {
+  const topControls = document.getElementById('pagination-top');
+  const bottomControls = document.getElementById('pagination-bottom');
+  const pageIndicator = document.getElementById('page-indicator');
+  const loadBtnTop = document.getElementById('load-older-top');
+  const loadBtnBottom = document.getElementById('load-older-bottom');
+  const noMore = document.getElementById('no-more-messages');
+  
+  if (!topControls || !bottomControls) return;
+  
+  // Show/hide controls based on page state
+  if (currentPage === 1 && !hasMoreMessages) {
+    // Only one page, no pagination needed
+    topControls.classList.add('hidden');
+    bottomControls.classList.add('hidden');
+  } else if (currentPage === 1) {
+    // First page, show only bottom load button
+    topControls.classList.add('hidden');
+    bottomControls.classList.remove('hidden');
+    loadBtnBottom.classList.remove('hidden');
+    noMore.classList.add('hidden');
+  } else {
+    // Middle or last page, show both controls
+    topControls.classList.remove('hidden');
+    bottomControls.classList.remove('hidden');
+    
+    if (hasMoreMessages) {
+      loadBtnBottom.classList.remove('hidden');
+      noMore.classList.add('hidden');
+    } else {
+      loadBtnBottom.classList.add('hidden');
+      noMore.classList.remove('hidden');
+    }
+  }
+  
+  // Update page indicator
+  if (pageIndicator) {
+    const totalPages = Math.ceil(allMessages.length / MESSAGES_PER_PAGE);
+    pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  }
+}
+
+async function loadOlderMessages() {
+  if (isLoadingOlder || !hasMoreMessages) return;
+  
+  isLoadingOlder = true;
+  
+  // Show loading spinner
+  const spinner = document.getElementById('loading-spinner');
+  if (spinner) spinner.classList.remove('hidden');
+  
+  // Simulate network delay for demo
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  // Load next page
+  renderPage(currentPage + 1);
+  
+  // Hide spinner
+  if (spinner) spinner.classList.add('hidden');
+  
+  isLoadingOlder = false;
+}
+
+// 💬 Send Message (with Voice Window + Pagination check)
 async function sendMessage() {
   if (countdownActive) return alert('Please wait before sending again');
   
@@ -520,7 +662,23 @@ async function sendMessage() {
         cancelReply();
       }
       
-      addMessageToUI(text, 'sent', telegramMsgId);
+      // Add to pagination store AND UI
+      allMessages.push({
+        id: `sent-${Date.now()}`,
+        text: text,
+        type: 'sent',
+        timestamp: Date.now(),
+        telegramMsgId: telegramMsgId
+      });
+      
+      // If we're on the latest page, append to UI; otherwise, just store
+      if (currentPage === Math.ceil(allMessages.length / MESSAGES_PER_PAGE)) {
+        addMessageToUI(text, 'sent', telegramMsgId);
+        // Scroll to new message
+        const container = document.getElementById('messages');
+        if (container) container.scrollTop = container.scrollHeight;
+      }
+      
       input.value = '';
       
       if (spendToken) {
@@ -566,7 +724,7 @@ function startCountdown() {
   }, 1000);
 }
 
-// 📥 Receive Messages
+// 📥 Receive Messages (with Pagination awareness)
 async function startPolling() {
   setInterval(async () => {
     if (!myUserId) return;
@@ -592,10 +750,24 @@ async function startPolling() {
                 const weSentIt = sentTelegramMsgIds[telegramMsgId];
                 
                 if (!weSentIt) {
+                  // Add to pagination store
+                  allMessages.push({
+                    id: `recv-${updateId}`,
+                    text: text,
+                    type: 'received',
+                    timestamp: Date.now(),
+                    telegramMsgId: telegramMsgId
+                  });
+                  
+                  // Show ghost reply context if present
                   if (msg.reply_to_message && msg.reply_to_message.text) {
                     addMessageToUI(msg.reply_to_message.text, 'ghost', `ghost-${updateId}`);
                   }
-                  addMessageToUI(text, 'received', updateId);
+                  
+                  // If on latest page, render immediately
+                  if (currentPage === Math.ceil(allMessages.length / MESSAGES_PER_PAGE)) {
+                    addMessageToUI(text, 'received', updateId);
+                  }
                 }
               }
             }
