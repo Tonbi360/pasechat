@@ -39,9 +39,27 @@
       </div>
       <button onclick="exitVoiceWindow()" class="skip-btn" title="Exit voice mode">✕</button>
     </div>
+
+    <!-- Pagination Controls (Top) -->
+    <div id="pagination-top" class="pagination-controls hidden">
+      <span id="page-indicator">Page 1</span>
+      <button id="load-older-top" class="load-btn" onclick="loadOlderMessages()">Load Older</button>
+    </div>
     
     <!-- Messages Container -->
     <div id="messages"></div>
+
+    <!-- Loading Spinner (Hidden by default) -->
+    <div id="loading-spinner" class="loading-spinner hidden">
+      <div class="spinner"></div>
+      <p>Loading older messages...</p>
+    </div>
+
+    <!-- Pagination Controls (Bottom) -->
+    <div id="pagination-bottom" class="pagination-controls">
+      <button id="load-older-bottom" class="load-btn" onclick="loadOlderMessages()">📥 Load Older Messages</button>
+      <span id="no-more-messages" class="no-more hidden">✨ You're all caught up</span>
+    </div>
 
     <!-- Reply Preview (Ghost Reply) -->
     <div id="reply-preview" class="reply-preview hidden">
@@ -159,4 +177,4 @@
     }
   </script>
 </body>
-          </html>
+</html>
