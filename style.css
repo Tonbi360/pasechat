@@ -27,6 +27,25 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
 .input-area input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
 .input-area button { padding: 12px 20px; background: #333; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
 
+/* Mic Button */
+.mic-btn {
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.mic-btn:hover { background: #c0392b; transform: scale(1.05); }
+.mic-btn:disabled { background: #555; cursor: not-allowed; transform: none; }
+
 /* Token Counter */
 #token-display {
   position: fixed;
@@ -43,6 +62,91 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
 .token-low { color: #d9534f; }
 .token-ok { color: #333; }
 
+/* Voice Window Banner */
+.voice-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 12px 15px;
+  margin: 10px 0;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: pulse-glow 2s infinite;
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(102, 126, 234, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.8); }
+}
+.voice-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+}
+.voice-icon {
+  font-size: 1.2rem;
+  animation: bounce 1s infinite;
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.voice-time {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+.skip-btn {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 6px 12px;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.skip-btn:hover { background: rgba(255,255,255,0.4); }
+
+/* Voice Mode: Disable text input */
+.input-area.voice-mode input {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.input-area.voice-mode #send-btn {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Voice Exit Modal Actions */
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.modal-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.modal-actions .secondary {
+  background: transparent;
+  border: 1px solid #666;
+  color: #ccc;
+}
+.modal-actions .primary-btn {
+  background: #f39c12;
+  color: #fff;
+  border: none;
+  margin: 0;
+}
+
 /* Profile Modal */
 .modal {
   position: fixed;
@@ -56,7 +160,6 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   align-items: center;
   justify-content: center;
 }
-
 .modal-content {
   background: #1e1e1e;
   border-radius: 12px;
@@ -64,8 +167,8 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   max-width: 90%;
   width: 400px;
   position: relative;
+  color: #fff;
 }
-
 .close-btn {
   position: absolute;
   top: 15px;
@@ -76,12 +179,10 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   font-size: 1.5rem;
   cursor: pointer;
 }
-
 .profile-header {
   text-align: center;
   margin-bottom: 30px;
 }
-
 .avatar {
   width: 80px;
   height: 80px;
@@ -93,42 +194,33 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   font-size: 2.5rem;
   margin: 0 auto 15px;
 }
-
 .profile-section {
   margin: 20px 0;
   padding: 15px;
   background: #2a2a2a;
   border-radius: 8px;
 }
-
 .profile-section h3 {
   margin: 0 0 10px;
   font-size: 0.9rem;
   color: #888;
 }
-
 .profile-section p {
   margin: 0;
   line-height: 1.5;
 }
-
 .locked {
   opacity: 0.6;
 }
-
 .lock-msg {
   color: #f39c12;
   font-style: italic;
 }
 
-.hidden {
-  display: none !important;
-}
-
 /* Make header clickable */
 #chat-screen header {
   cursor: pointer;
-  }
+}
 
 /* Reply Preview Bar */
 .reply-preview {
@@ -141,13 +233,11 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   align-items: center;
   gap: 10px;
 }
-
 .reply-preview span {
   font-size: 0.75rem;
   color: #888;
   white-space: nowrap;
 }
-
 .reply-preview p {
   flex: 1;
   font-size: 0.9rem;
@@ -157,7 +247,6 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   text-overflow: ellipsis;
   margin: 0;
 }
-
 .cancel-reply {
   background: transparent;
   border: none;
@@ -179,7 +268,6 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   border: none !important;
   max-width: 90%;
 }
-
 .message.ghost + .message {
   margin-top: 2px;
 }
@@ -208,8 +296,8 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   padding: 20px;
   box-shadow: -5px 0 15px rgba(0,0,0,0.5);
   overflow-y: auto;
+  color: #fff;
 }
-
 .scheduled-panel .panel-header {
   display: flex;
   justify-content: space-between;
@@ -218,7 +306,6 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   padding-bottom: 15px;
   border-bottom: 1px solid #333;
 }
-
 .scheduled-item {
   background: #2a2a2a;
   padding: 15px;
@@ -226,19 +313,25 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   margin-bottom: 10px;
   border-left: 3px solid #f39c12;
 }
-
 .scheduled-item p {
   margin: 0 0 10px;
   color: #ccc;
   font-size: 0.9rem;
 }
-
 .scheduled-item .time {
   font-size: 0.8rem;
   color: #888;
   margin-bottom: 10px;
 }
-
+.scheduled-item .time.urgent {
+  color: #e74c3c;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 .scheduled-item button {
   background: #c0392b;
   color: #fff;
@@ -248,7 +341,6 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   cursor: pointer;
   font-size: 0.8rem;
 }
-
 .empty-msg {
   text-align: center;
   color: #666;
@@ -258,8 +350,12 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
 /* Schedule Modal */
 #schedule-modal .modal-content {
   max-width: 400px;
+  padding: 30px;
 }
-
+#schedule-modal h3 {
+  margin-bottom: 20px;
+  text-align: center;
+}
 #schedule-modal input[type="text"] {
   width: 100%;
   padding: 12px;
@@ -269,14 +365,12 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   color: #fff;
   border-radius: 6px;
 }
-
 #schedule-modal label {
   display: block;
   margin: 15px 0 5px;
   color: #888;
   font-size: 0.9rem;
 }
-
 #schedule-modal input[type="datetime-local"] {
   width: 100%;
   padding: 12px;
@@ -286,23 +380,10 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   border-radius: 6px;
 }
 
-.primary-btn {
-  width: 100%;
-  padding: 12px;
-  margin-top: 20px;
-  background: #f39c12;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
 /* Quick Actions */
 .quick-actions {
   margin-bottom: 20px;
 }
-
 .quick-actions .primary-btn {
   width: 100%;
   padding: 15px;
@@ -314,7 +395,6 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   cursor: pointer;
   font-weight: bold;
 }
-
 .quick-actions .primary-btn:hover {
   background: #e67e22;
 }
@@ -327,13 +407,11 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   text-align: center;
   margin-bottom: 20px;
 }
-
 .countdown p {
   margin: 5px 0;
   color: #fff;
   font-size: 0.9rem;
 }
-
 .countdown-time {
   font-size: 1.5rem;
   font-weight: bold;
@@ -346,11 +424,9 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   padding: 40px 20px;
   color: #666;
 }
-
 .empty-state p {
   margin: 10px 0;
 }
-
 .empty-state .hint {
   font-size: 0.85rem;
   color: #888;
@@ -362,7 +438,6 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   gap: 10px;
   margin: 15px 0;
 }
-
 .quick-time-btn {
   flex: 1;
   padding: 10px;
@@ -374,56 +449,20 @@ button.secondary { background: transparent; border: 1px solid #999; padding: 5px
   font-size: 0.9rem;
   transition: all 0.2s;
 }
-
 .quick-time-btn:hover {
   background: #3a3a3a;
   border-color: #f39c12;
 }
 
-/* Better Modal Spacing */
-#schedule-modal .modal-content {
-  max-width: 400px;
-  padding: 30px;
-}
-
-#schedule-modal h3 {
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-#schedule-modal input[type="text"] {
+/* Primary Button (global) */
+.primary-btn {
   width: 100%;
   padding: 12px;
-  margin: 10px 0;
-  background: #2a2a2a;
-  border: 1px solid #444;
+  margin-top: 20px;
+  background: #f39c12;
   color: #fff;
+  border: none;
   border-radius: 6px;
-}
-
-#schedule-modal label {
-  display: block;
-  margin: 15px 0 5px;
-  color: #888;
-  font-size: 0.9rem;
-}
-
-#schedule-modal input[type="datetime-local"] {
-  width: 100%;
-  padding: 12px;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  color: #fff;
-  border-radius: 6px;
-  }
-
-.scheduled-item .time.urgent {
-  color: #e74c3c;
-  font-weight: bold;
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  cursor: pointer;
+  font-size: 1rem;
 }
